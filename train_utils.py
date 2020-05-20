@@ -1,7 +1,3 @@
-'''
-This file holds functions that are used in the train.py script.
-'''
-
 def train_transforms(train_dir):
     '''
     Takes the directory of the training data as an input and returns a trainloader with images transformed for training.
@@ -44,7 +40,18 @@ def get_cat_to_name():
 
 def load_pretrained_nn(model_name):
     '''
-    Takes the model architecture as a string input and returns the loaded and pretrained model.
+    Takes the model architecture as a string input and returns the loaded and pretrained model with all parameters frozen.
     '''
     model = getattr(models, model_name)(pretrained = True)
+    for param in model.parameters():
+        param.requires_grad = False
     return model
+
+def build_new_classifier(hidden_units):
+    classifier = nn.Sequential(
+                           nn.Linear(25088, hidden_units),
+                           nn.ReLU(inplace = True),
+                           nn.Dropout(p=0.2),
+                           nn.Linear(hidden_units, 102),
+                           nn.LogSoftmax(dim = 1))
+    model.classifier = classifier
