@@ -68,5 +68,9 @@ model.classifier = build_new_classifier(args.hidden_units)
 optimizer = optim.Adam(model.classifier.parameters(), float(args.learning_rate))
 model, optimizer = train_model(model,optimizer, trainloader, validloader, args.epochs, args.gpu, verbose)
 
+if v:
+    print("Saving checkpoint with name {}".format(str(args.save_dir))
 # save the model
 save_model(args.arch, model, optimizer, cat_to_name, train_data.class_to_idx, args.save_dir)
+
+print("Model saved at {}".format(str(args.save_dir))
