@@ -9,6 +9,15 @@ from PIL import Image
 from numpy import asarray
 import numpy as np
 
+def get_cat_to_name(cat_to_name_file):
+    '''
+    When called returns the dict which translates the category numbers to flower names.
+    '''
+    import json
+
+    with open(cat_to_name_file, 'r') as f:
+        cat_to_name = json.load(f)
+    return cat_to_name
 
 # Load the model
 def load_checkpoint(filepath, gpu, verbose):
@@ -25,13 +34,13 @@ def load_checkpoint(filepath, gpu, verbose):
 
     if verbose:
         print("Loaded checkpoint {}.".format(str(filepath)))
-    model_name = checkpoint["arch"]
+    model_name = checkpoint["transfer_model"]
     model = getattr(models, str(model_name))(pretrained = True)
 
     if verbose:
-        print("Loaded model with {} architecture.".format(checkpoint["arch"]))
+        print("Loaded model with {} architecture.".format(checkpoint["transfer_model"]))
 
-    model.to(device)
+
     for param in model.parameters():
         param.requires_grad = False
 
@@ -46,11 +55,11 @@ def load_checkpoint(filepath, gpu, verbose):
         raise Exception('The classifier of the loaded model could not be identified. .classifier & .fc was tried')
 
     if verbose:
-        print("Loaded pretrained classifier with structure ".)
+        print("Loaded pretrained classifier.")
 
     optimizer = checkpoint["optimizer"]
     optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-    model.class_to_name = checkpoint["class_to_name"]
+
     model.class_to_idx = checkpoint["class_to_idx"]
     criterion = nn.NLLLoss()
 
@@ -71,7 +80,7 @@ def process_image(image):
     return transform(image)
 
 
-def predict(image_path, model, topk, gpu, verbose):
+def predict(image_path, model, topk, gpu, cat_file, verbose):
     ''' Predict the class (or classes) of an image using a trained deep learning model.
     '''
 
@@ -87,9 +96,9 @@ def predict(image_path, model, topk, gpu, verbose):
     if gpu and torch.cuda.is_available():
         if verbose:
                 print("GPU used for prediction")
-        model.to("gpu")
+        model.to("cuda")
         model.eval()
-        ps = torch.exp(model(image.to("gpu")))
+        ps = torch.exp(model(image.to("cuda")))
 
     else:
         if verbose:
@@ -97,25 +106,26 @@ def predict(image_path, model, topk, gpu, verbose):
         model.to("cpu")
         model.eval()
         ps = torch.exp(model(image))
-            
+
 
     #get the top 5 predictions
     top_p, top_class = ps.topk(topk, dim = 1)
     # convert tensor to a list
-    top_p = top_p.detach().numpy()
+    top_p = top_p.to("cpu").detach().numpy()
     top_p=list(top_p.flatten())
-    classes = list(top_class.detach().numpy().flatten())
+    classes = list(top_class.to("cpu").detach().numpy().flatten())
 
     # map the predictions to the classes
     idx_to_class = {v: k for k, v in model.class_to_idx.items()}
-    classes = list(top_class.detach().numpy().flatten())
+    classes = list(top_class.to("cpu").detach().numpy().flatten())
     class_preds = []
+    cat_to_name = get_cat_to_name(cat_file)
     for item in classes:
         item = idx_to_class[item]
-        class_preds.append(model.class_to_name[item])
+        class_preds.append(cat_to_name[item])
 
     if verbose:
         print("The predictions are:")
-    for i in range(top_p):
-        print("{}. {} with probability {}".format(i+1, class_preds[i], top_p[i]*100))
+    for i in range(len(top_p)):
+        print("{}. Flower: '{}' Probability: {}".format(i+1, class_preds[i], top_p[i]*100))
     return None

@@ -59,7 +59,7 @@ def load_pretrained_nn(model_name):
     # freeze parameters of pretrained model
     for param in model.parameters():
         param.requires_grad = False
-    print(model)
+
     return model
 
 def build_new_classifier(in_features, hidden_units):
@@ -97,14 +97,17 @@ def train_model(model, optimizer, trainloader, validloader, epoch, gpu, verbose)
 
     model.train()
     epochs = epoch
-    steps = 0
-    print_every = 5
-    running_loss = 0
+
+    print_every = 50
+
 
 
     for epoch in range(epochs):
         print("Training in epoch {}".format(str(epoch)))
+        running_loss = 0
+        steps = 0
         for images, labels in trainloader:
+
             steps +=1
             if gpu:
                 images, labels = images.to(device), labels.to(device)
@@ -121,6 +124,7 @@ def train_model(model, optimizer, trainloader, validloader, epoch, gpu, verbose)
             if steps % print_every == 0:
                 if verbose:
                     print("Current batch: {}".format(str(steps)))
+                print("Train loss: {}".format(running_loss/(steps*32)))
                 valid_loss = 0
                 accuracy = 0
                 model.eval()
@@ -142,7 +146,7 @@ def train_model(model, optimizer, trainloader, validloader, epoch, gpu, verbose)
                     print("Validation loss: {}".format(valid_loss/len(validloader)))
                     print("Validation Accuracy: {}".format(accuracy/len(validloader)))
                     model.train()
-            print("Train loss: {}".format(running_loss/len(trainloader)))
+
     return model, optimizer
 
 def save_model(arch, model, optimizer, cat_to_name, class_to_idx, save_dir):
@@ -151,6 +155,5 @@ def save_model(arch, model, optimizer, cat_to_name, class_to_idx, save_dir):
              "classifier_state_dict": model.classifier.state_dict(),
              "optimizer": optimizer,
              "optimizer_state_dict": optimizer.state_dict(),
-             "class_to_idx": class_to_idx,
-             "class_to_name": model.class_to_name}
+             "class_to_idx": class_to_idx}
     torch.save(checkpoint, save_dir)
