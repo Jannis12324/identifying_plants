@@ -37,6 +37,7 @@ parser.add_argument("-v", "--verbose", action = "store_true", help = "Prints sta
 args = parser.parse_args()
 v = args.verbose
 verbose = v
+
 # Load the data
 if v:
     print("Loading data")
@@ -45,7 +46,7 @@ train_dir = data_dir + '/train'
 valid_dir = data_dir + '/valid'
 test_dir = data_dir + '/test'
 
-trainloader = train_transforms(train_dir)
+trainloader, train_data_class_to_idx = train_transforms(train_dir)
 validloader = test_transforms(valid_dir)
 testloader = test_transforms(test_dir)
 
@@ -54,23 +55,71 @@ if v:
     print("Loading mapping dict")
 cat_to_name = get_cat_to_name()
 
+
+
 # load pretrained model
 if v:
     print("Loading pretrained model {}".format(str(args.arch)))
 model = load_pretrained_nn(args.arch)
+if v:
+    print("Model architecture with old classifier: {}".format(model))
+
+
 
 # build and attach new classifier
 if v:
     print("Building new classifier with {} hidden units".format(str(args.hidden_units)))
-model.classifier = build_new_classifier(args.hidden_units)
+
+
+
+# Attach the new classifier after checking what it is called in the loaded model
+if hasattr(model, 'classifier'):
+    clf = model.classifier
+    # Check if the classifier has a sequential object or a single layer
+    if isinstance(clf, torch.nn.modules.container.Sequential):
+        in_features = clf[0].in_features
+    else:
+        in_features = clf.in_features
+
+    model.classifier = build_new_classifier(in_features, args.hidden_units)
+    if v:
+        print("The new classifier: {}".format(model.classifier))
+elif hasattr(model, 'fc'):
+    clf = model.fc
+    # Check if the classifier has a sequential object or a single layer
+    if isinstance(clf, torch.nn.modules.container.Sequential):
+        in_features = clf[0].in_features
+    else:
+        in_features = clf.in_features
+
+    model.fc = build_new_classifier(in_features, args.hidden_units)
+    if v:
+        print("The new classifier: {}".format(model.fc))
+else:
+    raise Exception('The classifier of the loaded model could not be identified. .classifier & .fc was tried')
+
+
 
 # train the model
-optimizer = optim.Adam(model.classifier.parameters(), float(args.learning_rate))
+if v and args.gpu:
+    if torch.cuda.is_available():
+        print("Training with gpu")
+    else:
+        print("GPU not available, training with CPU")
+if v and not args.gpu:
+    print("Training with CPU selected")
+
+if hasattr(model, 'classifier'):
+    optimizer = optim.Adam(model.classifier.parameters(), float(args.learning_rate))
+elif hasattr(model, 'fc'):
+    optimizer = optim.Adam(model.fc.parameters(), float(args.learning_rate))
+
 model, optimizer = train_model(model,optimizer, trainloader, validloader, args.epochs, args.gpu, verbose)
 
-if v:
-    print("Saving checkpoint with name {}".format(str(args.save_dir))
-# save the model
-save_model(args.arch, model, optimizer, cat_to_name, train_data.class_to_idx, args.save_dir)
 
-print("Model saved at {}".format(str(args.save_dir))
+# save the model
+if v:
+    print("Saving checkpoint with name {}".format(str(args.save_dir)))
+save_model(args.arch, model, optimizer, cat_to_name, train_data_class_to_idx, args.save_dir)
+
+print("Model saved at {}".format(str(args.save_dir)))

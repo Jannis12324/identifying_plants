@@ -24,7 +24,7 @@ def train_transforms(train_dir):
     train_data = datasets.ImageFolder(train_dir, transform = train_transforms)
     trainloader = torch.utils.data.DataLoader(train_data, batch_size = 32, shuffle = True)
 
-    return trainloader
+    return trainloader, train_data.class_to_idx
 
 def test_transforms(test_dir):
     '''
@@ -59,14 +59,15 @@ def load_pretrained_nn(model_name):
     # freeze parameters of pretrained model
     for param in model.parameters():
         param.requires_grad = False
+    print(model)
     return model
 
-def build_new_classifier(hidden_units):
+def build_new_classifier(in_features, hidden_units):
     '''
     Builds a new classifier with the requested amount of hidden units.
     '''
     classifier = nn.Sequential(
-                           nn.Linear(25088, hidden_units),
+                           nn.Linear(in_features, hidden_units),
                            nn.ReLU(inplace = True),
                            nn.Dropout(p=0.2),
                            nn.Linear(hidden_units, 102),
